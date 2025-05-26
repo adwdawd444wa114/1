@@ -5,7 +5,7 @@ class WebSSHClient {
         this.currentUser = null;
         this.users = [];
         this.terminalsList = [];
-        
+
         this.initializeElements();
         this.bindEvents();
     }
@@ -57,10 +57,10 @@ class WebSSHClient {
         // 连接Socket.IO
         this.socket = io();
         this.bindSocketEvents();
-        
+
         // 发送加入请求
         this.socket.emit('join', username);
-        
+
         this.joinBtn.disabled = true;
         this.joinBtn.textContent = '连接中...';
     }
@@ -71,6 +71,8 @@ class WebSSHClient {
             this.currentUser = data;
             this.showMainInterface();
             this.showStatus('连接成功！', 'success');
+            // 显示欢迎通知
+            this.showWelcomeNotification();
         });
 
         // 连接错误
@@ -104,6 +106,11 @@ class WebSSHClient {
             this.removeTerminal(terminalId);
         });
 
+        // 安全警告
+        this.socket.on('security-alert', (alertData) => {
+            this.showStatus(`🚨 ${alertData.message}`, 'warning');
+        });
+
         // 断开连接
         this.socket.on('disconnect', () => {
             this.showStatus('连接已断开', 'error');
@@ -117,7 +124,7 @@ class WebSSHClient {
         this.loginContainer.style.display = 'none';
         this.mainContainer.style.display = 'flex';
         this.currentUserSpan.textContent = this.currentUser.username;
-        
+
         // 请求初始数据
         this.socket.emit('get-users');
         this.socket.emit('get-terminals');
@@ -125,14 +132,14 @@ class WebSSHClient {
 
     updateUsersList() {
         this.usersListDiv.innerHTML = '';
-        
+
         this.users.forEach(user => {
             const userDiv = document.createElement('div');
             userDiv.className = 'user-item';
             if (user.userId === this.currentUser.userId) {
                 userDiv.classList.add('current-user');
             }
-            
+
             userDiv.innerHTML = `
                 <div style="font-weight: bold;">${user.username}</div>
                 <div style="font-size: 12px; color: #666;">
@@ -140,23 +147,23 @@ class WebSSHClient {
                     ${new Date(user.createdAt).toLocaleTimeString()}
                 </div>
             `;
-            
+
             this.usersListDiv.appendChild(userDiv);
         });
     }
 
     updateTerminalsList() {
         this.terminalsListDiv.innerHTML = '';
-        
+
         this.terminalsList.forEach(terminal => {
             const terminalDiv = document.createElement('div');
             terminalDiv.className = 'terminal-item';
-            
+
             const isOwn = terminal.ownerId === this.currentUser.userId;
             if (isOwn) {
                 terminalDiv.classList.add('own-terminal');
             }
-            
+
             terminalDiv.innerHTML = `
                 <div style="font-weight: bold;">${terminal.ownerName}的终端</div>
                 <div style="font-size: 12px; color: #666;">
@@ -164,11 +171,11 @@ class WebSSHClient {
                     ${new Date(terminal.createdAt).toLocaleTimeString()}
                 </div>
             `;
-            
+
             terminalDiv.addEventListener('click', () => {
                 this.scrollToTerminal(terminal.id);
             });
-            
+
             this.terminalsListDiv.appendChild(terminalDiv);
         });
     }
@@ -181,22 +188,35 @@ class WebSSHClient {
             }
         }
 
-        // 添加新终端
-        this.terminalsList.forEach(terminal => {
+        // 按照自己的终端优先排序
+        const sortedTerminals = [...this.terminalsList].sort((a, b) => {
+            const aIsOwn = a.ownerId === this.currentUser.userId;
+            const bIsOwn = b.ownerId === this.currentUser.userId;
+
+            if (aIsOwn && !bIsOwn) return -1; // 自己的终端排在前面
+            if (!aIsOwn && bIsOwn) return 1;
+            return a.createdAt.localeCompare(b.createdAt); // 其他按创建时间排序
+        });
+
+        // 添加新终端（按排序后的顺序）
+        sortedTerminals.forEach(terminal => {
             if (!this.terminals.has(terminal.id)) {
                 this.createTerminal(terminal);
             }
         });
+
+        // 重新排序现有终端
+        this.reorderTerminals(sortedTerminals);
     }
 
     createTerminal(terminalInfo) {
         const isOwn = terminalInfo.ownerId === this.currentUser.userId;
-        
+
         // 创建终端包装器
         const wrapper = document.createElement('div');
         wrapper.className = `terminal-wrapper ${isOwn ? 'own-terminal' : 'readonly-terminal'}`;
         wrapper.id = `wrapper-${terminalInfo.id}`;
-        
+
         // 创建终端头部
         const header = document.createElement('div');
         header.className = 'terminal-header';
@@ -206,16 +226,16 @@ class WebSSHClient {
                 ${isOwn ? '可控制' : '只读'}
             </div>
         `;
-        
+
         // 创建终端内容区域
         const content = document.createElement('div');
         content.className = 'terminal-content';
         content.id = `terminal-${terminalInfo.id}`;
-        
+
         wrapper.appendChild(header);
         wrapper.appendChild(content);
         this.terminalsContainer.appendChild(wrapper);
-        
+
         // 创建xterm实例
         const xterm = new Terminal({
             cursorBlink: true,
@@ -228,25 +248,43 @@ class WebSSHClient {
                 selection: '#ffffff40'
             },
             allowTransparency: true,
-            disableStdin: !isOwn // 非所有者禁用输入
+            disableStdin: !isOwn, // 非所有者禁用输入
+            convertEol: false, // 禁用自动换行转换
+            screenReaderMode: false,
+            macOptionIsMeta: true,
+            rightClickSelectsWord: false,
+            fastScrollModifier: 'alt'
         });
-        
+
         const fitAddon = new FitAddon.FitAddon();
         xterm.loadAddon(fitAddon);
-        
+
         xterm.open(content);
         fitAddon.fit();
-        
+
         // 绑定输入事件（仅对自己的终端）
         if (isOwn) {
+            let lastInputTime = 0;
+            let lastInputData = '';
+
             xterm.onData((data) => {
+                const now = Date.now();
+
+                // 防止重复输入：如果相同数据在50ms内重复，则忽略
+                if (data === lastInputData && (now - lastInputTime) < 50) {
+                    return;
+                }
+
+                lastInputTime = now;
+                lastInputData = data;
+
                 this.socket.emit('terminal-input', {
                     terminalId: terminalInfo.id,
                     input: data
                 });
             });
         }
-        
+
         // 保存终端信息
         this.terminals.set(terminalInfo.id, {
             xterm: xterm,
@@ -254,7 +292,7 @@ class WebSSHClient {
             isOwn: isOwn,
             wrapper: wrapper
         });
-        
+
         console.log(`创建终端: ${terminalInfo.id} (${isOwn ? '可控制' : '只读'})`);
     }
 
@@ -309,7 +347,7 @@ class WebSSHClient {
     showStatus(message, type = 'info') {
         this.statusMessage.textContent = message;
         this.statusMessage.className = `status-message ${type} show`;
-        
+
         setTimeout(() => {
             this.statusMessage.classList.remove('show');
         }, 3000);
@@ -319,13 +357,13 @@ class WebSSHClient {
         if (this.socket) {
             this.socket.disconnect();
         }
-        
+
         // 清理终端
         for (const [terminalId, terminal] of this.terminals) {
             terminal.xterm.dispose();
         }
         this.terminals.clear();
-        
+
         // 重置界面
         this.loginContainer.style.display = 'flex';
         this.mainContainer.style.display = 'none';
@@ -333,10 +371,109 @@ class WebSSHClient {
         this.joinBtn.disabled = false;
         this.joinBtn.textContent = '加入';
         this.terminalsContainer.innerHTML = '';
-        
+
         this.currentUser = null;
         this.users = [];
         this.terminalsList = [];
+    }
+
+    // 显示欢迎通知
+    showWelcomeNotification() {
+        // 创建通知弹窗
+        const notification = document.createElement('div');
+        notification.className = 'welcome-notification';
+        notification.innerHTML = `
+            <div class="notification-content">
+                <h3>🎉 欢迎来到 LinuxDo 网络自习室！</h3>
+                <p>这里是一个多用户协作的终端环境</p>
+                <ul>
+                    <li>✅ 你可以在自己的终端中执行命令</li>
+                    <li>👀 可以观看其他用户的终端操作</li>
+                    <li>🛡️ 危险命令会被自动拦截保护</li>
+                    <li>🤝 与其他用户一起学习和交流</li>
+                </ul>
+                <button class="notification-close">开始使用</button>
+            </div>
+        `;
+
+        document.body.appendChild(notification);
+
+        // 绑定关闭事件
+        const closeBtn = notification.querySelector('.notification-close');
+        closeBtn.addEventListener('click', () => {
+            notification.remove();
+        });
+
+        // 5秒后自动关闭
+        setTimeout(() => {
+            if (document.body.contains(notification)) {
+                notification.remove();
+            }
+        }, 8000);
+    }
+
+    // 重新排序终端
+    reorderTerminals(sortedTerminals) {
+        const container = this.terminalsContainer;
+
+        // 按照排序顺序重新排列DOM元素
+        sortedTerminals.forEach((terminal, index) => {
+            const wrapper = document.getElementById(`wrapper-${terminal.id}`);
+            if (wrapper) {
+                // 将元素移动到正确位置
+                container.appendChild(wrapper);
+
+                // 为自己的终端添加全屏按钮
+                if (terminal.ownerId === this.currentUser.userId) {
+                    this.addFullscreenButton(wrapper, terminal.id);
+                }
+            }
+        });
+    }
+
+    // 添加全屏按钮
+    addFullscreenButton(wrapper, terminalId) {
+        // 检查是否已经有全屏按钮
+        if (wrapper.querySelector('.fullscreen-btn')) {
+            return;
+        }
+
+        const header = wrapper.querySelector('.terminal-header');
+        const fullscreenBtn = document.createElement('button');
+        fullscreenBtn.className = 'fullscreen-btn';
+        fullscreenBtn.innerHTML = '⛶';
+        fullscreenBtn.title = '全屏显示';
+
+        fullscreenBtn.addEventListener('click', () => {
+            this.toggleFullscreen(wrapper, terminalId);
+        });
+
+        header.appendChild(fullscreenBtn);
+    }
+
+    // 切换全屏
+    toggleFullscreen(wrapper, terminalId) {
+        const terminal = this.terminals.get(terminalId);
+        if (!terminal) return;
+
+        if (wrapper.classList.contains('fullscreen')) {
+            // 退出全屏
+            wrapper.classList.remove('fullscreen');
+            document.body.classList.remove('terminal-fullscreen');
+            wrapper.querySelector('.fullscreen-btn').innerHTML = '⛶';
+            wrapper.querySelector('.fullscreen-btn').title = '全屏显示';
+        } else {
+            // 进入全屏
+            wrapper.classList.add('fullscreen');
+            document.body.classList.add('terminal-fullscreen');
+            wrapper.querySelector('.fullscreen-btn').innerHTML = '⛷';
+            wrapper.querySelector('.fullscreen-btn').title = '退出全屏';
+        }
+
+        // 重新调整终端大小
+        setTimeout(() => {
+            terminal.fitAddon.fit();
+        }, 100);
     }
 }
 

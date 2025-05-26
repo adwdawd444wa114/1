@@ -45,10 +45,10 @@ io.on('connection', (socket) => {
 
     // 创建用户会话
     const session = sessionManager.createSession(socket.id, username);
-    
+
     // 创建用户专属终端
     const terminal = terminalManager.createTerminal(session.userId, username);
-    
+
     socket.join(session.userId); // 加入房间
     socket.username = username;
     socket.userId = session.userId;
@@ -62,7 +62,7 @@ io.on('connection', (socket) => {
 
     // 广播用户列表更新
     io.emit('users-update', sessionManager.getAllUsers());
-    
+
     // 广播终端列表更新
     io.emit('terminals-update', terminalManager.getAllTerminals());
 
@@ -73,7 +73,7 @@ io.on('connection', (socket) => {
   socket.on('terminal-input', (data) => {
     const { terminalId, input } = data;
     const session = sessionManager.getSessionBySocketId(socket.id);
-    
+
     if (!session) {
       socket.emit('error', '未找到用户会话');
       return;
@@ -103,19 +103,19 @@ io.on('connection', (socket) => {
   // 断开连接处理
   socket.on('disconnect', () => {
     console.log('用户断开连接:', socket.id);
-    
+
     const session = sessionManager.getSessionBySocketId(socket.id);
     if (session) {
       // 关闭用户的终端
       terminalManager.closeTerminal(session.userId);
-      
+
       // 删除会话
       sessionManager.removeSession(socket.id);
-      
+
       // 广播更新
       io.emit('users-update', sessionManager.getAllUsers());
       io.emit('terminals-update', terminalManager.getAllTerminals());
-      
+
       console.log(`用户 ${session.username} 已断开连接`);
     }
   });
@@ -135,8 +135,27 @@ terminalManager.on('terminal-closed', (terminalId) => {
   io.emit('terminal-closed', terminalId);
 });
 
+// 监听安全违规事件
+terminalManager.on('security-violation', (violationData) => {
+  console.log(`🚨 安全违规: 用户 ${violationData.ownerName} 尝试执行危险命令: ${violationData.command}`);
+
+  // 可以在这里添加更多安全处理逻辑，比如：
+  // 1. 记录到安全日志文件
+  // 2. 发送邮件通知管理员
+  // 3. 临时限制用户权限
+  // 4. 广播安全警告给其他用户（可选）
+
+  // 广播安全事件给所有用户（可选，用于透明度）
+  io.emit('security-alert', {
+    message: `用户 ${violationData.ownerName} 尝试执行了被禁止的命令`,
+    timestamp: violationData.timestamp,
+    severity: 'warning'
+  });
+});
+
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`WebSSH 服务器运行在端口 ${PORT}`);
-  console.log(`访问 http://localhost:${PORT} 开始使用`);
+  console.log(`🌐 LinuxDo 网络自习室服务器运行在端口 ${PORT}`);
+  console.log(`🔗 访问 http://localhost:${PORT} 开始使用`);
+  console.log(`🛡️ 安全过滤器已启用，危险命令将被自动拦截`);
 });
