@@ -122,7 +122,17 @@ class WebSSHClient {
 
         // 安全警告
         this.socket.on('security-alert', (alertData) => {
-            this.showStatus(`🚨 ${alertData.message}`, 'warning');
+            this.showSecurityAlert(alertData);
+        });
+
+        // 用户被封禁通知
+        this.socket.on('user-blocked-notification', (blockData) => {
+            this.showStatus(`🚫 ${blockData.message}`, 'error');
+        });
+
+        // 强制断开连接
+        this.socket.on('force-disconnect', (disconnectData) => {
+            this.showForceDisconnectDialog(disconnectData);
         });
 
         // 断开连接
@@ -621,6 +631,105 @@ class WebSSHClient {
         } catch (error) {
             console.warn('无法清除保存的用户名:', error);
         }
+    }
+
+    // 显示安全警告
+    showSecurityAlert(alertData) {
+        // 根据严重程度选择不同的样式
+        let alertClass = 'security-alert';
+        let icon = '🚨';
+
+        switch (alertData.severity) {
+            case 'critical':
+                alertClass += ' critical';
+                icon = '🔥';
+                break;
+            case 'high':
+                alertClass += ' high';
+                icon = '⚠️';
+                break;
+            case 'medium':
+                alertClass += ' medium';
+                icon = '⚡';
+                break;
+            default:
+                alertClass += ' warning';
+                icon = '🚨';
+        }
+
+        // 创建安全警告弹窗
+        const alertDiv = document.createElement('div');
+        alertDiv.className = alertClass;
+        alertDiv.innerHTML = `
+            <div class="alert-content">
+                <div class="alert-header">
+                    <span class="alert-icon">${icon}</span>
+                    <span class="alert-title">安全警告</span>
+                    <span class="alert-severity">[${alertData.severity?.toUpperCase() || 'WARNING'}]</span>
+                </div>
+                <div class="alert-message">${alertData.message}</div>
+                ${alertData.command ? `<div class="alert-command">命令: <code>${alertData.command}</code></div>` : ''}
+                <div class="alert-time">${new Date(alertData.timestamp).toLocaleString()}</div>
+                <button class="alert-close">×</button>
+            </div>
+        `;
+
+        document.body.appendChild(alertDiv);
+
+        // 绑定关闭事件
+        const closeBtn = alertDiv.querySelector('.alert-close');
+        closeBtn.addEventListener('click', () => {
+            alertDiv.remove();
+        });
+
+        // 自动关闭（根据严重程度调整时间）
+        const autoCloseTime = alertData.severity === 'critical' ? 10000 :
+                             alertData.severity === 'high' ? 8000 : 5000;
+
+        setTimeout(() => {
+            if (document.body.contains(alertDiv)) {
+                alertDiv.style.opacity = '0';
+                setTimeout(() => {
+                    if (document.body.contains(alertDiv)) {
+                        alertDiv.remove();
+                    }
+                }, 300);
+            }
+        }, autoCloseTime);
+
+        // 同时显示状态消息
+        this.showStatus(`${icon} ${alertData.message}`, 'warning');
+    }
+
+    // 显示强制断开连接对话框
+    showForceDisconnectDialog(disconnectData) {
+        // 创建模态对话框
+        const modal = document.createElement('div');
+        modal.className = 'disconnect-modal';
+        modal.innerHTML = `
+            <div class="modal-content">
+                <div class="modal-header">
+                    <span class="modal-icon">🚫</span>
+                    <h3>连接已被终止</h3>
+                </div>
+                <div class="modal-body">
+                    <p><strong>原因：</strong>${disconnectData.reason}</p>
+                    ${disconnectData.details ? `<p><strong>详情：</strong>${disconnectData.details}</p>` : ''}
+                    <p>您的连接已被系统自动断开，请检查您的操作是否符合使用规范。</p>
+                </div>
+                <div class="modal-footer">
+                    <button class="modal-btn primary" onclick="location.reload()">重新连接</button>
+                    <button class="modal-btn secondary" onclick="window.close()">关闭页面</button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        // 5秒后自动重新加载页面
+        setTimeout(() => {
+            location.reload();
+        }, 5000);
     }
 }
 

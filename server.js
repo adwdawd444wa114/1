@@ -4,6 +4,7 @@ const socketIo = require('socket.io');
 const path = require('path');
 const TerminalManager = require('./lib/terminal-manager');
 const SessionManager = require('./lib/session-manager');
+const SecurityMonitor = require('./lib/security-monitor');
 
 const app = express();
 const server = http.createServer(app);
@@ -17,9 +18,10 @@ const io = socketIo(server, {
 // 静态文件服务
 app.use(express.static('public'));
 
-// 终端管理器和会话管理器
+// 终端管理器、会话管理器和安全监控器
 const terminalManager = new TerminalManager();
 const sessionManager = new SessionManager();
+const securityMonitor = new SecurityMonitor();
 
 // 主页路由
 app.get('/', (req, res) => {
@@ -45,6 +47,13 @@ io.on('connection', (socket) => {
 
     // 创建用户会话
     const session = sessionManager.createSession(socket.id, username);
+
+    // 检查用户是否被安全监控器封禁
+    if (securityMonitor.isUserBlocked(session.userId)) {
+      socket.emit('error', '您已被系统封禁，无法连接');
+      sessionManager.removeSession(socket.id);
+      return;
+    }
 
     // 创建用户专属终端
     const terminal = terminalManager.createTerminal(session.userId, username);
@@ -139,17 +148,48 @@ terminalManager.on('terminal-closed', (terminalId) => {
 terminalManager.on('security-violation', (violationData) => {
   console.log(`🚨 安全违规: 用户 ${violationData.ownerName} 尝试执行危险命令: ${violationData.command}`);
 
-  // 可以在这里添加更多安全处理逻辑，比如：
-  // 1. 记录到安全日志文件
-  // 2. 发送邮件通知管理员
-  // 3. 临时限制用户权限
-  // 4. 广播安全警告给其他用户（可选）
+  // 记录到安全监控器
+  securityMonitor.logSecurityEvent({
+    type: 'command-violation',
+    ownerId: violationData.ownerId,
+    ownerName: violationData.ownerName,
+    command: violationData.command,
+    reason: violationData.reason,
+    severity: violationData.severity,
+    terminalId: violationData.terminalId,
+    rateLimitStatus: violationData.rateLimitStatus
+  });
 
   // 广播安全事件给所有用户（可选，用于透明度）
   io.emit('security-alert', {
     message: `用户 ${violationData.ownerName} 尝试执行了被禁止的命令`,
     timestamp: violationData.timestamp,
-    severity: 'warning'
+    severity: violationData.severity,
+    command: violationData.command.substring(0, 50) + (violationData.command.length > 50 ? '...' : '')
+  });
+});
+
+// 监听安全监控器事件
+securityMonitor.on('user-blocked', (blockData) => {
+  console.log(`🚫 用户被自动封禁: ${blockData.userId} - ${blockData.reason}`);
+
+  // 断开被封禁用户的连接
+  const session = sessionManager.getSessionByUserId(blockData.userId);
+  if (session) {
+    const socket = io.sockets.sockets.get(session.socketId);
+    if (socket) {
+      socket.emit('force-disconnect', {
+        reason: '您已被系统自动封禁',
+        details: blockData.reason
+      });
+      socket.disconnect(true);
+    }
+  }
+
+  // 广播封禁通知
+  io.emit('user-blocked-notification', {
+    message: '系统检测到恶意行为，已自动封禁相关用户',
+    timestamp: blockData.timestamp
   });
 });
 
