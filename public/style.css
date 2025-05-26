@@ -1,0 +1,391 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    color: #333;
+}
+
+.container {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* 登录界面样式 */
+#login-container {
+    justify-content: center;
+    align-items: center;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.login-box {
+    background: white;
+    padding: 2rem;
+    border-radius: 10px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    text-align: center;
+    max-width: 400px;
+    width: 90%;
+}
+
+.login-box h1 {
+    color: #333;
+    margin-bottom: 0.5rem;
+    font-size: 2rem;
+}
+
+.login-box p {
+    color: #666;
+    margin-bottom: 1.5rem;
+}
+
+.input-group {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 1rem;
+}
+
+#username-input {
+    flex: 1;
+    padding: 12px;
+    border: 2px solid #ddd;
+    border-radius: 5px;
+    font-size: 16px;
+    outline: none;
+    transition: border-color 0.3s;
+}
+
+#username-input:focus {
+    border-color: #667eea;
+}
+
+#join-btn {
+    padding: 12px 20px;
+    background: #667eea;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background 0.3s;
+}
+
+#join-btn:hover {
+    background: #5a6fd8;
+}
+
+.error-message {
+    color: #e74c3c;
+    margin-top: 10px;
+    font-size: 14px;
+}
+
+.features {
+    margin-top: 2rem;
+    text-align: left;
+}
+
+.features h3 {
+    color: #333;
+    margin-bottom: 1rem;
+}
+
+.features ul {
+    list-style: none;
+    padding-left: 0;
+}
+
+.features li {
+    padding: 5px 0;
+    color: #666;
+}
+
+/* 主界面样式 */
+.header {
+    background: rgba(255, 255, 255, 0.95);
+    padding: 1rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(10px);
+}
+
+.header-left h1 {
+    color: #333;
+    font-size: 1.5rem;
+    margin-right: 1rem;
+    display: inline-block;
+}
+
+.user-info {
+    background: #667eea;
+    color: white;
+    padding: 5px 10px;
+    border-radius: 15px;
+    font-size: 14px;
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.online-count {
+    background: #27ae60;
+    color: white;
+    padding: 5px 10px;
+    border-radius: 15px;
+    font-size: 14px;
+}
+
+.logout-btn {
+    background: #e74c3c;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.logout-btn:hover {
+    background: #c0392b;
+}
+
+.main-content {
+    flex: 1;
+    display: flex;
+    padding: 1rem;
+    gap: 1rem;
+}
+
+/* 侧边栏样式 */
+.sidebar {
+    width: 300px;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.panel {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 10px;
+    padding: 1rem;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(10px);
+}
+
+.panel h3 {
+    color: #333;
+    margin-bottom: 1rem;
+    font-size: 1.1rem;
+    border-bottom: 2px solid #667eea;
+    padding-bottom: 0.5rem;
+}
+
+.users-list, .terminals-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.user-item, .terminal-item {
+    padding: 10px;
+    background: #f8f9fa;
+    border-radius: 5px;
+    border-left: 4px solid #667eea;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.user-item:hover, .terminal-item:hover {
+    background: #e9ecef;
+    transform: translateX(5px);
+}
+
+.user-item.current-user {
+    border-left-color: #27ae60;
+    background: #d4edda;
+}
+
+.terminal-item.own-terminal {
+    border-left-color: #27ae60;
+    background: #d4edda;
+}
+
+.terminal-item.active-terminal {
+    border-left-color: #f39c12;
+    background: #fff3cd;
+}
+
+.help-text {
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.help-text p {
+    margin-bottom: 0.5rem;
+    color: #666;
+}
+
+/* 终端区域样式 */
+.terminal-area {
+    flex: 1;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 10px;
+    padding: 1rem;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(10px);
+}
+
+.terminals-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+    gap: 1rem;
+    height: 100%;
+}
+
+.terminal-wrapper {
+    border: 3px solid #ddd;
+    border-radius: 10px;
+    overflow: hidden;
+    background: #000;
+    position: relative;
+    min-height: 400px;
+}
+
+.terminal-wrapper.own-terminal {
+    border-color: #27ae60;
+    box-shadow: 0 0 20px rgba(39, 174, 96, 0.3);
+}
+
+.terminal-wrapper.readonly-terminal {
+    border-color: #3498db;
+    box-shadow: 0 0 20px rgba(52, 152, 219, 0.3);
+}
+
+.terminal-header {
+    background: #2c3e50;
+    color: white;
+    padding: 10px 15px;
+    font-size: 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.terminal-title {
+    font-weight: bold;
+}
+
+.terminal-status {
+    font-size: 12px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.terminal-status.writable {
+    background: #27ae60;
+}
+
+.terminal-status.readonly {
+    background: #3498db;
+}
+
+.terminal-content {
+    height: 350px;
+    padding: 10px;
+}
+
+/* 状态消息样式 */
+.status-message {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 15px 20px;
+    border-radius: 5px;
+    color: white;
+    font-weight: bold;
+    z-index: 1000;
+    transform: translateX(400px);
+    transition: transform 0.3s ease;
+}
+
+.status-message.show {
+    transform: translateX(0);
+}
+
+.status-message.success {
+    background: #27ae60;
+}
+
+.status-message.error {
+    background: #e74c3c;
+}
+
+.status-message.info {
+    background: #3498db;
+}
+
+.status-message.warning {
+    background: #f39c12;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .main-content {
+        flex-direction: column;
+    }
+    
+    .sidebar {
+        width: 100%;
+        order: 2;
+    }
+    
+    .terminal-area {
+        order: 1;
+    }
+    
+    .terminals-container {
+        grid-template-columns: 1fr;
+    }
+    
+    .header {
+        padding: 1rem;
+        flex-direction: column;
+        gap: 1rem;
+    }
+    
+    .header-left, .header-right {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+/* 滚动条样式 */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}

@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSSH - 多用户终端</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css" />
+</head>
+<body>
+    <div id="app">
+        <!-- 登录界面 -->
+        <div id="login-container" class="container">
+            <div class="login-box">
+                <h1>WebSSH 多用户终端</h1>
+                <p>请输入用户名加入终端会话</p>
+                <div class="input-group">
+                    <input type="text" id="username-input" placeholder="输入用户名" maxlength="20">
+                    <button id="join-btn">加入</button>
+                </div>
+                <div id="login-error" class="error-message"></div>
+                <div class="features">
+                    <h3>功能特点：</h3>
+                    <ul>
+                        <li>✅ 每人独立终端，互不干扰</li>
+                        <li>✅ 可查看其他用户终端输出</li>
+                        <li>✅ 只能控制自己的终端</li>
+                        <li>✅ 自动过滤危险命令</li>
+                        <li>✅ 实时多用户协作</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- 主界面 -->
+        <div id="main-container" class="container" style="display: none;">
+            <!-- 顶部导航 -->
+            <div class="header">
+                <div class="header-left">
+                    <h1>WebSSH</h1>
+                    <span id="current-user" class="user-info"></span>
+                </div>
+                <div class="header-right">
+                    <span id="online-count" class="online-count">在线: 0</span>
+                    <button id="logout-btn" class="logout-btn">退出</button>
+                </div>
+            </div>
+
+            <div class="main-content">
+                <!-- 左侧面板 -->
+                <div class="sidebar">
+                    <!-- 用户列表 -->
+                    <div class="panel">
+                        <h3>在线用户</h3>
+                        <div id="users-list" class="users-list"></div>
+                    </div>
+
+                    <!-- 终端列表 -->
+                    <div class="panel">
+                        <h3>终端列表</h3>
+                        <div id="terminals-list" class="terminals-list"></div>
+                    </div>
+
+                    <!-- 帮助信息 -->
+                    <div class="panel">
+                        <h3>使用说明</h3>
+                        <div class="help-text">
+                            <p>• 绿色边框：你的终端</p>
+                            <p>• 蓝色边框：其他用户终端</p>
+                            <p>• 只能在自己的终端输入命令</p>
+                            <p>• 危险命令会被自动拦截</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 终端区域 -->
+                <div class="terminal-area">
+                    <div id="terminals-container" class="terminals-container">
+                        <!-- 终端会在这里动态创建 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 状态提示 -->
+        <div id="status-message" class="status-message"></div>
+    </div>
+
+    <script src="client.js"></script>
+</body>
+</html>

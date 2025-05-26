@@ -1,0 +1,20 @@
+{
+  "name": "webssh-multi-user",
+  "version": "1.0.0",
+  "description": "Multi-user WebSSH terminal with command filtering and permission control",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["webssh", "terminal", "multi-user", "socket.io", "xterm"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^5.1.0",
+    "node-pty": "^1.0.0",
+    "socket.io": "^4.8.1",
+    "uuid": "^11.1.0"
+  }
+}
