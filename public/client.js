@@ -8,6 +8,7 @@ class WebSSHClient {
 
         this.initializeElements();
         this.bindEvents();
+        this.loadSavedUsername();
     }
 
     initializeElements() {
@@ -35,6 +36,16 @@ class WebSSHClient {
             if (e.key === 'Enter') this.join();
         });
 
+        // 支持全局回车键登录（当在登录界面时）
+        document.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && this.loginContainer.style.display !== 'none') {
+                // 如果用户名输入框有值或者焦点在加入按钮上，则登录
+                if (this.usernameInput.value.trim() || document.activeElement === this.joinBtn) {
+                    this.join();
+                }
+            }
+        });
+
         // 退出事件
         this.logoutBtn.addEventListener('click', () => this.logout());
 
@@ -53,6 +64,9 @@ class WebSSHClient {
             this.showLoginError('用户名不能超过20个字符');
             return;
         }
+
+        // 保存用户名到本地存储
+        this.saveUsername(username);
 
         // 连接Socket.IO
         this.socket = io();
@@ -374,7 +388,7 @@ class WebSSHClient {
         // 重置界面
         this.loginContainer.style.display = 'flex';
         this.mainContainer.style.display = 'none';
-        this.usernameInput.value = '';
+        // 不清空用户名，保持记忆功能
         this.joinBtn.disabled = false;
         this.joinBtn.textContent = '加入';
         this.terminalsContainer.innerHTML = '';
@@ -382,6 +396,9 @@ class WebSSHClient {
         this.currentUser = null;
         this.users = [];
         this.terminalsList = [];
+
+        // 重新加载保存的用户名（不显示提示）
+        this.loadSavedUsername(false);
     }
 
     // 显示欢迎通知
@@ -528,6 +545,82 @@ class WebSSHClient {
         setTimeout(() => {
             terminal.fitAddon.fit();
         }, 100);
+    }
+
+    // 保存用户名到本地存储
+    saveUsername(username) {
+        try {
+            localStorage.setItem('linuxdo_username', username);
+        } catch (error) {
+            console.warn('无法保存用户名到本地存储:', error);
+        }
+    }
+
+    // 从本地存储加载用户名
+    loadSavedUsername(showHint = true) {
+        try {
+            const savedUsername = localStorage.getItem('linuxdo_username');
+            if (savedUsername) {
+                this.usernameInput.value = savedUsername;
+                this.usernameInput.placeholder = `上次使用: ${savedUsername}`;
+
+                // 自动聚焦到加入按钮，方便直接回车登录
+                this.joinBtn.focus();
+
+                // 显示提示信息（仅在首次加载时）
+                if (showHint) {
+                    this.showUsernameHint(savedUsername);
+                }
+            }
+        } catch (error) {
+            console.warn('无法从本地存储加载用户名:', error);
+        }
+    }
+
+    // 显示用户名提示
+    showUsernameHint(username) {
+        const hintElement = document.createElement('div');
+        hintElement.className = 'username-hint';
+        hintElement.innerHTML = `
+            <span>💡 检测到上次使用的用户名: <strong>${username}</strong></span>
+            <button class="clear-username-btn" title="清除记忆的用户名">✕</button>
+        `;
+
+        // 插入到输入框下方
+        const inputGroup = document.querySelector('.input-group');
+        inputGroup.parentNode.insertBefore(hintElement, inputGroup.nextSibling);
+
+        // 绑定清除按钮事件
+        const clearBtn = hintElement.querySelector('.clear-username-btn');
+        clearBtn.addEventListener('click', () => {
+            this.clearSavedUsername();
+            hintElement.remove();
+        });
+
+        // 5秒后自动隐藏提示
+        setTimeout(() => {
+            if (document.body.contains(hintElement)) {
+                hintElement.style.opacity = '0';
+                setTimeout(() => {
+                    if (document.body.contains(hintElement)) {
+                        hintElement.remove();
+                    }
+                }, 300);
+            }
+        }, 5000);
+    }
+
+    // 清除保存的用户名
+    clearSavedUsername() {
+        try {
+            localStorage.removeItem('linuxdo_username');
+            this.usernameInput.value = '';
+            this.usernameInput.placeholder = '输入用户名';
+            this.usernameInput.focus();
+            this.showStatus('已清除记忆的用户名', 'info');
+        } catch (error) {
+            console.warn('无法清除保存的用户名:', error);
+        }
     }
 }
 

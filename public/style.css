@@ -86,6 +86,41 @@ body {
     font-size: 14px;
 }
 
+/* 用户名提示样式 */
+.username-hint {
+    background: #e8f5e8;
+    border: 1px solid #4caf50;
+    border-radius: 5px;
+    padding: 10px;
+    margin-top: 10px;
+    font-size: 14px;
+    color: #2e7d32;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: opacity 0.3s ease;
+}
+
+.username-hint strong {
+    color: #1b5e20;
+}
+
+.clear-username-btn {
+    background: transparent;
+    border: none;
+    color: #666;
+    cursor: pointer;
+    font-size: 16px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    transition: all 0.3s;
+}
+
+.clear-username-btn:hover {
+    background: rgba(0, 0, 0, 0.1);
+    color: #333;
+}
+
 .features {
     margin-top: 2rem;
     text-align: left;
