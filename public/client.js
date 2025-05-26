@@ -135,6 +135,21 @@ class WebSSHClient {
             this.showForceDisconnectDialog(disconnectData);
         });
 
+        // IP被封禁
+        this.socket.on('ip-banned', (banData) => {
+            this.showIPBannedDialog(banData);
+        });
+
+        // IP强制断开连接
+        this.socket.on('ip-force-disconnect', (disconnectData) => {
+            this.showIPForceDisconnectDialog(disconnectData);
+        });
+
+        // IP封禁通知
+        this.socket.on('ip-ban-notification', (banData) => {
+            this.showStatus(`🚫 ${banData.message}`, 'error');
+        });
+
         // 断开连接
         this.socket.on('disconnect', () => {
             this.showStatus('连接已断开', 'error');
@@ -730,6 +745,71 @@ class WebSSHClient {
         setTimeout(() => {
             location.reload();
         }, 5000);
+    }
+
+    // 显示IP被封禁对话框
+    showIPBannedDialog(banData) {
+        const modal = document.createElement('div');
+        modal.className = 'disconnect-modal ip-banned';
+        modal.innerHTML = `
+            <div class="modal-content">
+                <div class="modal-header">
+                    <span class="modal-icon">🚫</span>
+                    <h3>IP地址已被封禁</h3>
+                </div>
+                <div class="modal-body">
+                    <p><strong>封禁原因：</strong>${banData.reason}</p>
+                    <p><strong>封禁时间：</strong>${new Date(banData.bannedAt).toLocaleString()}</p>
+                    ${banData.permanent ?
+                        '<p><strong>封禁类型：</strong><span class="permanent-ban">永久封禁</span></p>' :
+                        `<p><strong>封禁时长：</strong>${banData.duration}小时</p>`
+                    }
+                    <p class="warning-text">您的IP地址因违反使用规范已被系统封禁。</p>
+                    ${banData.permanent ?
+                        '<p class="contact-info">如需申诉，请联系管理员：zbiuwi@163.com</p>' :
+                        '<p class="temp-info">临时封禁将在指定时间后自动解除。</p>'
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button class="modal-btn secondary" onclick="window.close()">关闭页面</button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+    }
+
+    // 显示IP强制断开连接对话框
+    showIPForceDisconnectDialog(disconnectData) {
+        const modal = document.createElement('div');
+        modal.className = 'disconnect-modal ip-force-disconnect';
+        modal.innerHTML = `
+            <div class="modal-content">
+                <div class="modal-header">
+                    <span class="modal-icon">🔥</span>
+                    <h3>连接已被强制终止</h3>
+                </div>
+                <div class="modal-body">
+                    <p><strong>原因：</strong>${disconnectData.reason}</p>
+                    <p><strong>详情：</strong>${disconnectData.details}</p>
+                    ${disconnectData.permanent ?
+                        '<p><strong>封禁类型：</strong><span class="permanent-ban">永久封禁</span></p>' :
+                        '<p><strong>封禁类型：</strong>临时封禁</p>'
+                    }
+                    <p><strong>违规次数：</strong>${disconnectData.banCount}</p>
+                    <p class="warning-text">您的IP地址因多次违规已被系统封禁，连接已被强制断开。</p>
+                    ${disconnectData.permanent ?
+                        '<p class="contact-info">如需申诉，请联系管理员：zbiuwi@163.com</p>' :
+                        '<p class="temp-info">请等待封禁时间结束后再次尝试连接。</p>'
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button class="modal-btn secondary" onclick="window.close()">关闭页面</button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
     }
 }
 

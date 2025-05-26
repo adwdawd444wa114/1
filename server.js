@@ -5,6 +5,7 @@ const path = require('path');
 const TerminalManager = require('./lib/terminal-manager');
 const SessionManager = require('./lib/session-manager');
 const SecurityMonitor = require('./lib/security-monitor');
+const IPBanManager = require('./lib/ip-ban-manager');
 
 const app = express();
 const server = http.createServer(app);
@@ -18,10 +19,11 @@ const io = socketIo(server, {
 // 静态文件服务
 app.use(express.static('public'));
 
-// 终端管理器、会话管理器和安全监控器
+// 终端管理器、会话管理器、安全监控器和IP封禁管理器
 const terminalManager = new TerminalManager();
 const sessionManager = new SessionManager();
 const securityMonitor = new SecurityMonitor();
+const ipBanManager = new IPBanManager();
 
 // 主页路由
 app.get('/', (req, res) => {
@@ -30,7 +32,22 @@ app.get('/', (req, res) => {
 
 // Socket.IO 连接处理
 io.on('connection', (socket) => {
-  console.log('用户连接:', socket.id);
+  const clientIP = socket.handshake.address || socket.request.connection.remoteAddress;
+  console.log(`用户连接: ${socket.id} (IP: ${clientIP})`);
+
+  // 检查IP是否被封禁
+  const banInfo = ipBanManager.isIPBanned(clientIP);
+  if (banInfo) {
+    console.log(`🚫 封禁IP尝试连接: ${clientIP}`);
+    socket.emit('ip-banned', {
+      reason: banInfo.reason,
+      bannedAt: banInfo.bannedAt,
+      permanent: banInfo.permanent,
+      duration: banInfo.duration
+    });
+    socket.disconnect(true);
+    return;
+  }
 
   // 用户加入
   socket.on('join', (username) => {
@@ -148,6 +165,27 @@ terminalManager.on('terminal-closed', (terminalId) => {
 terminalManager.on('security-violation', (violationData) => {
   console.log(`🚨 安全违规: 用户 ${violationData.ownerName} 尝试执行危险命令: ${violationData.command}`);
 
+  // 获取用户IP地址
+  const session = sessionManager.getSessionByUserId(violationData.ownerId);
+  let clientIP = 'unknown';
+  if (session) {
+    const socket = io.sockets.sockets.get(session.socketId);
+    if (socket) {
+      clientIP = socket.handshake.address || socket.request.connection.remoteAddress;
+    }
+  }
+
+  // 记录IP违规
+  ipBanManager.recordViolation(clientIP, {
+    type: 'command-violation',
+    ownerId: violationData.ownerId,
+    ownerName: violationData.ownerName,
+    command: violationData.command,
+    reason: violationData.reason,
+    severity: violationData.severity,
+    terminalId: violationData.terminalId
+  });
+
   // 记录到安全监控器
   securityMonitor.logSecurityEvent({
     type: 'command-violation',
@@ -157,7 +195,8 @@ terminalManager.on('security-violation', (violationData) => {
     reason: violationData.reason,
     severity: violationData.severity,
     terminalId: violationData.terminalId,
-    rateLimitStatus: violationData.rateLimitStatus
+    rateLimitStatus: violationData.rateLimitStatus,
+    ipAddress: clientIP
   });
 
   // 广播安全事件给所有用户（可选，用于透明度）
@@ -165,7 +204,8 @@ terminalManager.on('security-violation', (violationData) => {
     message: `用户 ${violationData.ownerName} 尝试执行了被禁止的命令`,
     timestamp: violationData.timestamp,
     severity: violationData.severity,
-    command: violationData.command.substring(0, 50) + (violationData.command.length > 50 ? '...' : '')
+    command: violationData.command.substring(0, 50) + (violationData.command.length > 50 ? '...' : ''),
+    ipAddress: clientIP.substring(0, 10) + '...' // 部分隐藏IP
   });
 });
 
@@ -191,6 +231,36 @@ securityMonitor.on('user-blocked', (blockData) => {
     message: '系统检测到恶意行为，已自动封禁相关用户',
     timestamp: blockData.timestamp
   });
+});
+
+// 监听IP封禁事件
+ipBanManager.on('ip-banned', (banData) => {
+  console.log(`🚫 IP已被封禁: ${banData.ip} - ${banData.reason} ${banData.permanent ? '(永久)' : ''}`);
+
+  // 断开该IP的所有连接
+  for (const [socketId, socket] of io.sockets.sockets) {
+    const socketIP = socket.handshake.address || socket.request.connection.remoteAddress;
+    if (socketIP === banData.ip) {
+      socket.emit('ip-force-disconnect', {
+        reason: '您的IP地址已被封禁',
+        details: banData.reason,
+        permanent: banData.permanent,
+        banCount: banData.banCount
+      });
+      socket.disconnect(true);
+    }
+  }
+
+  // 广播IP封禁通知（隐藏完整IP）
+  io.emit('ip-ban-notification', {
+    message: `检测到恶意行为，IP ${banData.ip.substring(0, 8)}... 已被封禁`,
+    permanent: banData.permanent,
+    timestamp: banData.timestamp
+  });
+});
+
+ipBanManager.on('ip-unbanned', (unbanData) => {
+  console.log(`✅ IP已解封: ${unbanData.ip}`);
 });
 
 const PORT = process.env.PORT || 3000;
