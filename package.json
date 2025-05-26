@@ -5,6 +5,10 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
+    "start:local": "USE_CONTAINERS=false node server.js",
+    "start:container": "USE_CONTAINERS=true node server.js",
+    "check-docker": "node check-docker.js",
+    "admin": "node admin-tools.js",
     "dev": "node server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

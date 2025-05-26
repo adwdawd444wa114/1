@@ -3,6 +3,7 @@ const http = require('http');
 const socketIo = require('socket.io');
 const path = require('path');
 const TerminalManager = require('./lib/terminal-manager');
+const ContainerTerminalManager = require('./lib/container-terminal-manager');
 const SessionManager = require('./lib/session-manager');
 const SecurityMonitor = require('./lib/security-monitor');
 const IPBanManager = require('./lib/ip-ban-manager');
@@ -20,10 +21,13 @@ const io = socketIo(server, {
 app.use(express.static('public'));
 
 // 终端管理器、会话管理器、安全监控器和IP封禁管理器
-const terminalManager = new TerminalManager();
+const useContainers = process.env.USE_CONTAINERS !== 'false'; // 默认使用容器
+const terminalManager = useContainers ? new ContainerTerminalManager() : new TerminalManager();
 const sessionManager = new SessionManager();
 const securityMonitor = new SecurityMonitor();
 const ipBanManager = new IPBanManager();
+
+console.log(`🔧 服务器模式: ${useContainers ? '容器模式 🐳' : '本地模式 💻'}`);
 
 // 主页路由
 app.get('/', (req, res) => {
@@ -50,7 +54,7 @@ io.on('connection', (socket) => {
   }
 
   // 用户加入
-  socket.on('join', (username) => {
+  socket.on('join', async (username) => {
     if (!username || username.trim() === '') {
       socket.emit('error', '用户名不能为空');
       return;
@@ -73,7 +77,15 @@ io.on('connection', (socket) => {
     }
 
     // 创建用户专属终端
-    const terminal = terminalManager.createTerminal(session.userId, username);
+    let terminal;
+    try {
+      terminal = await terminalManager.createTerminal(session.userId, username);
+    } catch (error) {
+      console.error('创建终端失败:', error);
+      socket.emit('error', '创建终端失败，请稍后重试');
+      sessionManager.removeSession(socket.id);
+      return;
+    }
 
     socket.join(session.userId); // 加入房间
     socket.username = username;
