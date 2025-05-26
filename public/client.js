@@ -358,6 +358,13 @@ class WebSSHClient {
             this.socket.disconnect();
         }
 
+        // 清理全屏状态
+        document.body.classList.remove('terminal-fullscreen');
+        if (this.fullscreenKeyHandler) {
+            document.removeEventListener('keydown', this.fullscreenKeyHandler);
+            this.fullscreenKeyHandler = null;
+        }
+
         // 清理终端
         for (const [terminalId, terminal] of this.terminals) {
             terminal.xterm.dispose();
@@ -458,16 +465,63 @@ class WebSSHClient {
 
         if (wrapper.classList.contains('fullscreen')) {
             // 退出全屏
-            wrapper.classList.remove('fullscreen');
-            document.body.classList.remove('terminal-fullscreen');
-            wrapper.querySelector('.fullscreen-btn').innerHTML = '⛶';
-            wrapper.querySelector('.fullscreen-btn').title = '全屏显示';
+            this.exitFullscreen(wrapper, terminalId);
         } else {
             // 进入全屏
-            wrapper.classList.add('fullscreen');
-            document.body.classList.add('terminal-fullscreen');
-            wrapper.querySelector('.fullscreen-btn').innerHTML = '⛷';
-            wrapper.querySelector('.fullscreen-btn').title = '退出全屏';
+            this.enterFullscreen(wrapper, terminalId);
+        }
+    }
+
+    // 进入全屏
+    enterFullscreen(wrapper, terminalId) {
+        const terminal = this.terminals.get(terminalId);
+        if (!terminal) return;
+
+        wrapper.classList.add('fullscreen');
+        document.body.classList.add('terminal-fullscreen');
+        wrapper.querySelector('.fullscreen-btn').innerHTML = '✕';
+        wrapper.querySelector('.fullscreen-btn').title = '退出全屏 (ESC或双击)';
+
+        // 添加ESC键监听
+        this.fullscreenKeyHandler = (e) => {
+            if (e.key === 'Escape') {
+                this.exitFullscreen(wrapper, terminalId);
+            }
+        };
+        document.addEventListener('keydown', this.fullscreenKeyHandler);
+
+        // 添加双击退出全屏
+        this.fullscreenDblClickHandler = (e) => {
+            if (e.target.closest('.terminal-content')) {
+                this.exitFullscreen(wrapper, terminalId);
+            }
+        };
+        wrapper.addEventListener('dblclick', this.fullscreenDblClickHandler);
+
+        // 重新调整终端大小
+        setTimeout(() => {
+            terminal.fitAddon.fit();
+        }, 100);
+    }
+
+    // 退出全屏
+    exitFullscreen(wrapper, terminalId) {
+        const terminal = this.terminals.get(terminalId);
+        if (!terminal) return;
+
+        wrapper.classList.remove('fullscreen');
+        document.body.classList.remove('terminal-fullscreen');
+        wrapper.querySelector('.fullscreen-btn').innerHTML = '⛶';
+        wrapper.querySelector('.fullscreen-btn').title = '全屏显示';
+
+        // 移除事件监听
+        if (this.fullscreenKeyHandler) {
+            document.removeEventListener('keydown', this.fullscreenKeyHandler);
+            this.fullscreenKeyHandler = null;
+        }
+        if (this.fullscreenDblClickHandler) {
+            wrapper.removeEventListener('dblclick', this.fullscreenDblClickHandler);
+            this.fullscreenDblClickHandler = null;
         }
 
         // 重新调整终端大小
